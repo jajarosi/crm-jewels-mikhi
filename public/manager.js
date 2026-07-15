@@ -8,8 +8,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@^2.105.0';
 /* ═══════════════ 1. הגדרות — למלא כאן ═══════════════ */
 
 const CONFIG = {
-  SUPABASE_URL:      'https://XXXXXXXXXXXX.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  SUPABASE_URL:      'https://byyfxmdjqoxncjziubne.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5eWZ4bWRqcW94bmNqeml1Ym5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTgxMjYsImV4cCI6MjA5OTY3NDEyNn0.I2KGgR1g4U6S6d0UZUMoEJF2oLpt28VDRVEY6y3mEDQ',
   STORAGE_BUCKET:    'creations',   // דלי ציבורי ב-Supabase Storage
   MAX_IMG:           1200,          // מקסימום רוחב/גובה (px)
   WEBP_QUALITY:      0.8,

@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "jewels-michi-crm",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true,
