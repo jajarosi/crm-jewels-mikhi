@@ -1,6 +1,6 @@
 /* ============================================================
    מיכאל בלוך — CRM  |  manager.js
-   Auth (Passkey + Magic Link) · Realtime · WhatsApp · WebP
+   Auth (קוד סודי + Passkey) · Realtime · WhatsApp · WebP
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@^2.105.0';
@@ -11,16 +11,23 @@ const CONFIG = {
   SUPABASE_URL:      'https://byyfxmdjqoxncjziubne.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5eWZ4bWRqcW94bmNqeml1Ym5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTgxMjYsImV4cCI6MjA5OTY3NDEyNn0.I2KGgR1g4U6S6d0UZUMoEJF2oLpt28VDRVEY6y3mEDQ',
   STORAGE_BUCKET:    'creations',   // דלי ציבורי ב-Supabase Storage
+  MODELS_FOLDER:     '3d_models',   // תיקיית קבצי התלת־ממד בתוך הדלי
   MAX_IMG:           1200,          // מקסימום רוחב/גובה (px)
   WEBP_QUALITY:      0.8,
+  MAX_3D_BYTES:      52428800,      // 50MB — התקרה של תוכנית Free ב-Supabase
+
+  /* חשבון הפטרון — האימייל קבוע ומוסתר מהממשק.
+     הקוד הסודי שמוקלד במסך הכניסה הוא הסיסמה של החשבון הזה.
+     ⚠️ הקובץ הזה ציבורי: האימייל גלוי לכל. הקוד הסודי הוא ההגנה היחידה. */
+  PATRON_EMAIL:      'michael@gmail.com',
 };
 
 const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    experimental: { passkey: true },   // חובה עבור registerPasskey / signInWithPasskey
+    detectSessionInUrl: false,        // אין יותר קישורי קסם
+    experimental: { passkey: true },  // חובה עבור registerPasskey / signInWithPasskey
   },
 });
 
@@ -147,6 +154,40 @@ function waLink(sub) {
   return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 }
 
+/* ═══════════════ 3b. מצב יום / לילה ═══════════════ */
+
+const THEME_KEY = 'mb_theme';
+
+const ICON_MOON = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>';
+const ICON_SUN  = '<circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>';
+
+function applyTheme(theme) {
+  const dark = theme !== 'light';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+
+  $('#btn-theme').setAttribute('aria-checked', String(dark));
+  $('#theme-label').textContent = dark ? 'מצב לילה' : 'מצב יום';
+  $('#theme-ico').innerHTML = dark ? ICON_MOON : ICON_SUN;
+
+  // צובע את סרגל המצב של iOS באפליקציה המותקנת
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = dark ? '#0a0a0b' : '#f4f4f7';
+}
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+$('#btn-theme').addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch {}
+  buzz();
+});
+
+// הסקריפט ב-<head> כבר החיל את הערך; כאן מסנכרנים את המתג עצמו
+applyTheme(localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
+
 /* ═══════════════ 4. מצב האפליקציה ═══════════════ */
 
 const state = {
@@ -171,46 +212,63 @@ function showLogin(msg = '', kind = '') {
   $('#btn-passkey-login').hidden = localStorage.getItem(PK_FLAG) !== '1';
 }
 
-async function showApp(session) {
+async function showApp(session, { offerPasskey = false } = {}) {
   $('#login-screen').hidden = true;
   $('#app').hidden = false;
-  $('#settings-email').textContent = session?.user?.email ?? '';
+  $('#settings-status').textContent = 'מחובר ✓';
+  $('#input-code').value = '';
   renderFilters();
   await Promise.all([loadSubmissions(), loadCreations()]);
   subscribeRealtime();
+
+  // אחרי כניסה עם קוד: מציעים Face ID, אם עוד לא הופעל במכשיר הזה
+  if (offerPasskey && localStorage.getItem(PK_FLAG) !== '1' && passkeySupported()) {
+    setTimeout(openOnboard, 500);
+  }
 }
+
+const passkeySupported = () =>
+  typeof window.PublicKeyCredential !== 'undefined';
 
 /** הודעות שגיאה קריאות בעברית */
 function authErrorHe(error) {
   const code = error?.code || '';
   const map = {
-    passkey_disabled:            'התחברות עם Face ID אינה מופעלת בפרויקט.',
-    webauthn_credential_not_found: 'לא נמצא מפתח במכשיר הזה. יש להתחבר עם קישור למייל.',
-    email_not_confirmed:         'יש לאשר את כתובת האימייל תחילה.',
-    user_banned:                 'המשתמש חסום.',
-    over_email_send_rate_limit:  'נשלחו יותר מדי הודעות. נסו שוב בעוד כמה דקות.',
+    invalid_credentials:           'קוד שגוי. נסו שוב.',
+    passkey_disabled:              'התחברות עם Face ID אינה מופעלת בפרויקט.',
+    webauthn_credential_not_found: 'לא נמצא מפתח במכשיר הזה. הקלידו את הקוד הסודי.',
+    user_banned:                   'החשבון חסום.',
+    over_request_rate_limit:       'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.',
   };
   return map[code] || error?.message || 'אירעה שגיאה. נסו שוב.';
 }
 
-/* — קישור קסם — */
-$('#form-magiclink').addEventListener('submit', async (e) => {
+/* — כניסה עם קוד סודי —
+   האימייל קבוע ומוסתר; הקוד שמוקלד הוא הסיסמה של חשבון הפטרון. */
+$('#form-code').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = $('#input-email').value.trim();
-  const btn = $('#btn-magiclink');
+  const code = $('#input-code').value;
+  if (!code) return;
+
+  const btn = $('#btn-code');
   btn.disabled = true; btn.classList.add('is-busy');
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin },
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: CONFIG.PATRON_EMAIL,
+    password: code,
   });
 
   btn.disabled = false; btn.classList.remove('is-busy');
+
   if (error) {
+    $('#input-code').value = '';
+    buzz(40);
     showLogin(authErrorHe(error), 'err');
-  } else {
-    showLogin('נשלח קישור כניסה לאימייל שלך ✓', 'ok');
+    return;
   }
+
+  buzz(18);
+  await showApp(data.session, { offerPasskey: true });
 });
 
 /* — כניסה עם Passkey (Face ID) — */
@@ -235,32 +293,48 @@ async function loginWithPasskey({ silent = false } = {}) {
 
 $('#btn-passkey-login').addEventListener('click', () => loginWithPasskey());
 
-/* — רישום Passkey — */
-$('#btn-register-passkey').addEventListener('click', async () => {
-  const btn = $('#btn-register-passkey');
-  btn.disabled = true;
+/* — רישום Passkey (Face ID) — */
+async function enablePasskey(btn) {
+  if (btn) btn.disabled = true;
   try {
     const { error } = await supabase.auth.registerPasskey();
     if (error) throw error;
     localStorage.setItem(PK_FLAG, '1');
     buzz(18);
     toast('Face ID הופעל בהצלחה ✓', 'ok');
-    closeSheet();
+    return true;
   } catch (err) {
+    // ביטול של המשתמש אינו שגיאה — לא מציגים הודעה
     if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
       toast(authErrorHe(err), 'err');
     }
+    return false;
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
+}
+
+$('#btn-register-passkey').addEventListener('click', async (e) => {
+  const ok = await enablePasskey(e.currentTarget);
+  if (ok) closeSheet();
 });
 
+/* — הצעת Face ID אחרי הכניסה הראשונה — */
+function openOnboard()  { $('#onboard-backdrop').hidden = false; $('#sheet-onboard').hidden = false; }
+function closeOnboard() { $('#onboard-backdrop').hidden = true;  $('#sheet-onboard').hidden = true; }
+
+$('#btn-onboard-yes').addEventListener('click', async (e) => {
+  const ok = await enablePasskey(e.currentTarget);
+  if (ok) closeOnboard();
+});
+$('#btn-onboard-no').addEventListener('click', closeOnboard);
+$('#onboard-backdrop').addEventListener('click', closeOnboard);
+
 /* — התנתקות — */
+/* ניקוי המצב והחזרה למסך הכניסה נעשים במאזין onAuthStateChange */
 $('#btn-logout').addEventListener('click', async () => {
-  await supabase.auth.signOut();
   closeSheet();
-  state.submissions = []; state.creations = [];
-  showLogin('התנתקת בהצלחה.');
+  await supabase.auth.signOut();
 });
 
 /* ═══════════════ 6. טעינת נתונים ═══════════════ */
@@ -286,6 +360,9 @@ async function loadCreations() {
   if (error) { toast('שגיאה בטעינת הקולקציה', 'err'); return; }
   state.creations = data ?? [];
   renderCollection();
+  // כרטיסי ההזמנות תלויים ב-creations (תמונת הדגם, כפתור התלת־ממד),
+  // ושתי הטעינות רצות במקביל — לכן מציירים אותם מחדש כאן.
+  renderOrders();
 }
 
 /* ═══════════════ 7. מסננים ומונים ═══════════════ */
@@ -387,6 +464,19 @@ function mediaHtml(sub) {
   return '';
 }
 
+/** כפתור הורדת קובץ התלת־ממד — רק אם לדגם שנבחר מצורף קובץ */
+function threeDHtml(sub) {
+  if (sub.path !== 'collection') return '';
+  const cr  = state.creations.find((c) => c.id === sub.creation_id);
+  const url = download3dUrl(cr);
+  if (!url) return '';
+  return `
+    <a class="act act--3d" href="${esc(url)}" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      הורדת קובץ תלת־ממד
+    </a>`;
+}
+
 function cardHtml(sub) {
   const wa  = waLink(sub);
   const isNew = state.fresh.has(sub.id);
@@ -409,6 +499,7 @@ function cardHtml(sub) {
     ${sub.comment ? `<div class="card__comment">${esc(sub.comment)}</div>` : ''}
 
     ${sub.path === 'custom' ? specsHtml(sub) : mediaHtml(sub)}
+    ${threeDHtml(sub)}
 
     <div class="statuses">
       ${STATUSES.map((s) => `
@@ -561,10 +652,10 @@ window.addEventListener('online', () => {
 function renderCollection() {
   $('#collection-grid').innerHTML = state.creations.map((c) => `
     <figure class="item" data-cid="${c.id}">
-      <img class="item__img" src="${esc(c.img_url)}" alt="${esc(c.name)}"
-           loading="lazy" data-zoom="${esc(c.img_url)}">
+      <img class="item__img" src="${esc(c.img_url)}" alt="${esc(c.name)}" loading="lazy">
       <figcaption class="item__bar">
         <span class="item__name">${esc(c.name)}</span>
+        ${c.file_3d_url ? '<span class="pill pill--3d" title="קובץ תלת־ממד מצורף">3D</span>' : ''}
         <button class="item__del" data-del-c="${c.id}" aria-label="מחיקת ${esc(c.name)}">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -574,11 +665,15 @@ function renderCollection() {
   $('#collection-empty').hidden = state.creations.length > 0;
 }
 
+/* לחיצה על תכשיט פותחת עריכה; כפתור הפח מוחק */
 $('#collection-grid').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-c]');
   if (del) { await deleteCreation(Number(del.dataset.delC)); return; }
-  const zoom = e.target.closest('[data-zoom]');
-  if (zoom) openLightbox(zoom.dataset.zoom);
+
+  const item = e.target.closest('[data-cid]');
+  if (!item) return;
+  const cr = state.creations.find((c) => c.id === Number(item.dataset.cid));
+  if (cr) openProduct(cr);
 });
 
 async function deleteCreation(id) {
@@ -596,9 +691,8 @@ async function deleteCreation(id) {
     return;
   }
 
-  // ניקוי הקובץ מה-Storage (אם הועלה דרך האפליקציה)
-  const path = storagePathFromUrl(cr.img_url);
-  if (path) await supabase.storage.from(CONFIG.STORAGE_BUCKET).remove([path]);
+  // ניקוי הקבצים מה-Storage — גם התמונה וגם קובץ התלת־ממד
+  await removeStorage([cr.img_url, cr.file_3d_url]);
 
   state.creations = state.creations.filter((c) => c.id !== id);
   renderCollection();
@@ -607,8 +701,35 @@ async function deleteCreation(id) {
 
 function storagePathFromUrl(url) {
   const marker = `/storage/v1/object/public/${CONFIG.STORAGE_BUCKET}/`;
-  const i = String(url ?? '').indexOf(marker);
-  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length));
+  const s = String(url ?? '').split('?')[0];        // מסיר ?download=…
+  const i = s.indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(s.slice(i + marker.length));
+}
+
+/** מוחק קבצים מה-Storage לפי ה-URL הציבורי שלהם. שקט: כישלון אינו קריטי. */
+async function removeStorage(urls) {
+  const paths = (Array.isArray(urls) ? urls : [urls])
+    .map(storagePathFromUrl)
+    .filter(Boolean);
+  if (!paths.length) return;
+  await supabase.storage.from(CONFIG.STORAGE_BUCKET).remove(paths);
+}
+
+/** סיומת קובץ מנורמלת ("Ring_v2.3DM" → "3dm") */
+function fileExt(name) {
+  const m = String(name ?? '').match(/\.([a-z0-9]{1,8})$/i);
+  return m ? m[1].toLowerCase() : 'bin';
+}
+
+const humanSize = (b) =>
+  b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
+
+/** URL הורדה שמכריח הורדה (Content-Disposition) עם שם קריא */
+function download3dUrl(cr) {
+  if (!cr?.file_3d_url) return null;
+  const ext  = fileExt(storagePathFromUrl(cr.file_3d_url) ?? '');
+  const name = `${cr.name}.${ext}`.replace(/[\\/:*?"<>|]/g, '-');
+  return `${cr.file_3d_url}?download=${encodeURIComponent(name)}`;
 }
 
 /* ── דחיסה: שינוי גודל ל-1200px + המרה ל-WebP ── */
@@ -654,61 +775,248 @@ async function compressImage(file) {
   return { blob, ext };
 }
 
-$('#btn-add-creation').addEventListener('click', () => $('#file-creation').click());
+/* ── העלאה ל-Storage ── */
 
-$('#file-creation').addEventListener('change', async (e) => {
+const randomPath = (ext, folder = '') =>
+  `${folder ? folder + '/' : ''}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+/** מעלה ומחזיר { path, url }. זורק שגיאה בכישלון. */
+async function uploadToStorage(path, body, contentType) {
+  const { error } = await supabase.storage
+    .from(CONFIG.STORAGE_BUCKET)
+    .upload(path, body, { contentType, cacheControl: '31536000' });
+  if (error) throw error;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from(CONFIG.STORAGE_BUCKET)
+    .getPublicUrl(path);
+  return { path, url: publicUrl };
+}
+
+/* ── טופס תכשיט: הוספה ועריכה ── */
+
+const product = {
+  editing: null,    // רשומת creations בעריכה; null = תכשיט חדש
+  img:     null,    // { blob, ext } — תמונה חדשה שנבחרה
+  imgUrl:  null,    // object-URL לתצוגה מקדימה (חובה לשחרר)
+  file3d:  null,    // File — קובץ תלת־ממד חדש שנבחר
+  clear3d: false,   // בקשה למחוק את הקובץ הקיים
+};
+
+function releasePreview() {
+  if (product.imgUrl) { URL.revokeObjectURL(product.imgUrl); product.imgUrl = null; }
+}
+
+function openProduct(creation = null) {
+  releasePreview();
+  product.editing = creation;
+  product.img = null;
+  product.file3d = null;
+  product.clear3d = false;
+
+  $('#product-title').textContent = creation ? 'עריכת תכשיט' : 'תכשיט חדש';
+  $('#input-name').value = creation?.name ?? '';
+  $('#product-progress').hidden = true;
+  $('#product-bar').style.width = '0%';
+
+  renderProductForm();
+  $('#product-backdrop').hidden = false;
+  $('#sheet-product').hidden = false;
+}
+
+function closeProduct() {
+  releasePreview();
+  product.editing = null;
+  product.img = null;
+  product.file3d = null;
+  product.clear3d = false;
+  $('#product-backdrop').hidden = true;
+  $('#sheet-product').hidden = true;
+}
+
+function renderProductForm() {
+  // ── תמונה ──
+  const previewUrl = product.imgUrl ?? product.editing?.img_url ?? null;
+  const prev = $('#pick-img-prev');
+  prev.hidden = !previewUrl;
+  $('#pick-img-ph').hidden = !!previewUrl;
+  if (previewUrl) prev.src = previewUrl;
+
+  $('#pick-img').classList.toggle('picker--empty', !previewUrl);
+  $('#pick-img-v').textContent = product.img
+    ? `תמונה חדשה (${humanSize(product.img.blob.size)})`
+    : previewUrl ? 'החלפת התמונה' : 'בחירת תמונה';
+
+  // ── קובץ תלת־ממד ──
+  const existing3d = !product.clear3d ? product.editing?.file_3d_url : null;
+  const has3d = !!(product.file3d || existing3d);
+
+  $('#pick-3d').classList.toggle('picker--empty', !has3d);
+  $('#btn-3d-clear').hidden = !has3d;
+
+  const v = $('#pick-3d-v'), hint = $('#pick-3d-hint');
+  hint.classList.toggle('picker__hint--gold', !!product.file3d);
+
+  if (product.file3d) {
+    v.textContent = product.file3d.name;
+    hint.textContent = `קובץ חדש · ${humanSize(product.file3d.size)}`;
+  } else if (existing3d) {
+    v.textContent = `${product.editing.name}.${fileExt(storagePathFromUrl(existing3d) ?? '')}`;
+    hint.textContent = 'קובץ קיים — לחצו להחלפה';
+  } else {
+    v.textContent = 'בחירת קובץ';
+    hint.textContent = product.clear3d ? 'הקובץ יימחק בשמירה' : '3dm, stl, obj, step…';
+  }
+}
+
+/* בחירת קבצים */
+$('#btn-add-creation').addEventListener('click', () => openProduct(null));
+$('#pick-img').addEventListener('click', () => $('#file-img').click());
+$('#pick-3d').addEventListener('click', () => $('#file-3d').click());
+$('#btn-product-cancel').addEventListener('click', closeProduct);
+$('#product-backdrop').addEventListener('click', closeProduct);
+
+$('#file-img').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
-  e.target.value = '';                    // מאפשר לבחור שוב את אותו קובץ
+  e.target.value = '';
   if (!file) return;
-
-  const name = prompt('שם התכשיט:', '')?.trim();
-  if (!name) return;
-
-  const btn = $('#btn-add-creation');
-  btn.disabled = true;
-  const label = btn.querySelector('span');
-  label.textContent = 'מעלה…';
-
   try {
     const { blob, ext } = await compressImage(file);
-    label.textContent = `מעלה… (${Math.round(blob.size / 1024)} ק״ב)`;
+    releasePreview();
+    product.img = { blob, ext };
+    product.imgUrl = URL.createObjectURL(blob);
+    renderProductForm();
+  } catch {
+    toast('לא ניתן לקרוא את התמונה.', 'err');
+  }
+});
 
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+$('#file-3d').addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
 
-    const { error: upErr } = await supabase.storage
-      .from(CONFIG.STORAGE_BUCKET)
-      .upload(path, blob, { contentType: blob.type, cacheControl: '31536000' });
-    if (upErr) throw upErr;
+  if (file.size > CONFIG.MAX_3D_BYTES) {
+    toast(`הקובץ גדול מדי (${humanSize(file.size)}). המגבלה היא ${humanSize(CONFIG.MAX_3D_BYTES)}.`, 'err');
+    return;
+  }
+  product.file3d = file;
+  product.clear3d = false;
+  renderProductForm();
+});
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(CONFIG.STORAGE_BUCKET)
-      .getPublicUrl(path);
+/* הסרת הקובץ: מבטלת בחירה חדשה, או מסמנת קובץ קיים למחיקה בשמירה */
+$('#btn-3d-clear').addEventListener('click', () => {
+  if (product.file3d) product.file3d = null;
+  else product.clear3d = true;
+  buzz();
+  renderProductForm();
+});
 
-    const maxOrder = state.creations.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+/* ── שמירה ── */
 
-    const { data, error } = await supabase
-      .from('creations')
-      .insert({ name, img_url: publicUrl, active: true, sort_order: maxOrder + 1 })
-      .select()
-      .single();
+$('#form-product').addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-    if (error) {
-      await supabase.storage.from(CONFIG.STORAGE_BUCKET).remove([path]);  // ניקוי
-      throw error;
+  const name = $('#input-name').value.trim();
+  if (!name) return;
+
+  const isEdit = !!product.editing;
+  if (!isEdit && !product.img) { toast('יש לבחור תמונה.', 'err'); return; }
+
+  const btn = $('#btn-product-save');
+  btn.disabled = true; btn.classList.add('is-busy');
+  $('#product-progress').hidden = false;
+  $('#product-bar').style.width = '15%';
+
+  const uploaded = [];   // לניקוי אם ה-DB ייכשל
+
+  try {
+    // 1. תמונה חדשה
+    let imgUrl = product.editing?.img_url ?? null;
+    if (product.img) {
+      const { blob, ext } = product.img;
+      const up = await uploadToStorage(randomPath(ext), blob, blob.type);
+      uploaded.push(up.path);
+      imgUrl = up.url;
     }
+    $('#product-bar').style.width = '45%';
 
-    state.creations.push(data);
+    // 2. קובץ תלת־ממד חדש
+    let url3d = isEdit ? product.editing.file_3d_url : null;
+    if (product.file3d) {
+      const f = product.file3d;
+      const up = await uploadToStorage(
+        randomPath(fileExt(f.name), CONFIG.MODELS_FOLDER),
+        f,
+        f.type || 'application/octet-stream',
+      );
+      uploaded.push(up.path);
+      url3d = up.url;
+    } else if (product.clear3d) {
+      url3d = null;
+    }
+    $('#product-bar').style.width = '75%';
+
+    // 3. שורת ה-DB
+    let row;
+    if (isEdit) {
+      const { data, error } = await supabase
+        .from('creations')
+        .update({ name, img_url: imgUrl, file_3d_url: url3d })
+        .eq('id', product.editing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      row = data;
+    } else {
+      const maxOrder = state.creations.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+      const { data, error } = await supabase
+        .from('creations')
+        .insert({ name, img_url: imgUrl, file_3d_url: url3d, active: true, sort_order: maxOrder + 1 })
+        .select()
+        .single();
+      if (error) throw error;
+      row = data;
+    }
+    $('#product-bar').style.width = '100%';
+
+    // 4. רק אחרי הצלחת ה-DB: מוחקים את הקבצים הישנים שהוחלפו
+    const stale = [];
+    if (product.img && product.editing?.img_url) stale.push(product.editing.img_url);
+    if ((product.file3d || product.clear3d) && product.editing?.file_3d_url) {
+      stale.push(product.editing.file_3d_url);
+    }
+    await removeStorage(stale);
+
+    // 5. עדכון המצב המקומי
+    const i = state.creations.findIndex((c) => c.id === row.id);
+    if (i === -1) state.creations.push(row);
+    else state.creations[i] = row;
+
     renderCollection();
+    renderOrders();          // כפתור התלת־ממד בכרטיסים עשוי להשתנות
     buzz(20);
-    toast('התכשיט נוסף לקולקציה ✓', 'ok');
+    toast(isEdit ? 'התכשיט עודכן ✓' : 'התכשיט נוסף לקולקציה ✓', 'ok');
+    closeProduct();
 
   } catch (err) {
+    await removeStorage(                       // ניקוי מה שהספקנו להעלות
+      uploaded.map((p) =>
+        supabase.storage.from(CONFIG.STORAGE_BUCKET).getPublicUrl(p).data.publicUrl),
+    );
     const dup = err?.code === '23505';
-    toast(dup ? 'שם זה כבר קיים בקולקציה.' : 'ההעלאה נכשלה. נסו שוב.', 'err');
+    const big = err?.message?.match(/exceeded|too large|maximum/i);
+    toast(
+      dup ? 'שם זה כבר קיים בקולקציה.'
+      : big ? 'הקובץ גדול מהמותר בדלי האחסון.'
+      : 'השמירה נכשלה. נסו שוב.',
+      'err',
+    );
     console.error(err);
   } finally {
-    btn.disabled = false;
-    label.textContent = 'הוספת תכשיט לקולקציה';
+    btn.disabled = false; btn.classList.remove('is-busy');
+    $('#product-progress').hidden = true;
   }
 });
 
@@ -770,14 +1078,12 @@ $('#lightbox').addEventListener('click', () => {
   }
 })();
 
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session && $('#app').hidden) {
-    // מגיע גם מלחיצה על הקישור במייל
-    window.history.replaceState({}, '', window.location.pathname);
-    await showApp(session);
-  }
+/* הכניסה עצמה מטופלת ישירות ב-form-code וב-loginWithPasskey,
+   ולכן כאן מטפלים רק בניתוק (כולל רענון טוקן שנכשל). */
+supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
     if (channel) { supabase.removeChannel(channel); channel = null; }
+    state.submissions = []; state.creations = [];
     showLogin();
   }
 });

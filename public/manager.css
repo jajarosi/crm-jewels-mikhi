@@ -3,6 +3,7 @@
    Mobile-first · RTL
    ============================================================ */
 
+/* ── מצב לילה (ברירת מחדל) ── */
 :root {
   --bg:        #0a0a0b;
   --bg-elev:   #141416;
@@ -17,11 +18,26 @@
   --gold:      #d4af37;
   --gold-dim:  #8a7326;
   --gold-glow: rgba(212, 175, 55, .16);
+  --gold-soft: rgba(212, 175, 55, .05);
+  --gold-grad: linear-gradient(180deg, #e8c84f, #d4af37);
+  --on-gold:   #16130a;
 
   --blue:      #0a84ff;
   --green:     #30d158;
   --orange:    #ff9f0a;
+  --purple:    #5e5ce6;
   --red:       #ff453a;
+
+  --glass:     rgba(10, 10, 11, .78);
+  --img-bg:    #000;
+  --hairline:  rgba(255, 255, 255, .09);
+  --backdrop:  rgba(0, 0, 0, .55);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .6);
+  --shadow-md: 0 10px 34px rgba(0, 0, 0, .5);
+  --halo:      rgba(212, 175, 55, .09);
+  --red-soft:  rgba(255, 69, 58, .15);
+  --on-warn:   #17120a;
+  --on-ok:     #0a1a0d;
 
   --radius:    18px;
   --radius-sm: 12px;
@@ -31,6 +47,48 @@
 
   --ease: cubic-bezier(.22, 1, .36, 1);
 }
+
+/* ── מצב יום ── */
+:root[data-theme="light"] {
+  --bg:        #f4f4f7;
+  --bg-elev:   #ffffff;
+  --bg-elev-2: #f0f0f4;
+  --line:      #dcdce3;
+  --line-soft: #e9e9ef;
+
+  --txt:       #16161a;
+  --txt-2:     #5f5f6b;
+  --txt-3:     #8d8d99;
+
+  /* זהב כהה יותר — ניגודיות תקינה על רקע לבן */
+  --gold:      #96721c;
+  --gold-dim:  #b8912c;
+  --gold-glow: rgba(150, 114, 28, .14);
+  --gold-soft: rgba(150, 114, 28, .06);
+  --gold-grad: linear-gradient(180deg, #c9a227, #a67f1f);
+  --on-gold:   #fffdf5;
+
+  --blue:      #0066d6;
+  --green:     #1a8f3c;
+  --orange:    #b56a00;
+  --purple:    #4b49c4;
+  --red:       #d32f27;
+
+  --glass:     rgba(244, 244, 247, .8);
+  --img-bg:    #e6e6ec;
+  --hairline:  rgba(0, 0, 0, .07);
+  --backdrop:  rgba(0, 0, 0, .3);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .14);
+  --shadow-md: 0 8px 26px rgba(0, 0, 0, .1);
+  --halo:      rgba(150, 114, 28, .07);
+  --red-soft:  rgba(211, 47, 39, .1);
+  --on-warn:   #fff;
+  --on-ok:     #fff;
+}
+
+/* מיידע את הדפדפן (פסי גלילה, שדות קלט מובנים) */
+:root                      { color-scheme: dark;  }
+:root[data-theme="light"]  { color-scheme: light; }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -60,7 +118,7 @@ button { background: none; border: 0; cursor: pointer; }
   place-items: center;
   padding: 32px 24px calc(32px + var(--safe-b));
   background:
-    radial-gradient(120% 80% at 50% 0%, rgba(212,175,55,.09), transparent 60%),
+    radial-gradient(120% 80% at 50% 0%, var(--halo), transparent 60%),
     var(--bg);
 }
 
@@ -123,6 +181,20 @@ button { background: none; border: 0; cursor: pointer; }
   border-color: var(--gold-dim);
 }
 
+/* שדה הקוד הסודי */
+.input--code {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  padding: 16px;
+}
+.input--code::placeholder {
+  letter-spacing: normal;
+  font-weight: 400;
+  font-size: 16px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -140,8 +212,8 @@ button { background: none; border: 0; cursor: pointer; }
 .btn__ico { width: 20px; height: 20px; flex: none; }
 
 .btn--primary {
-  background: linear-gradient(180deg, #e8c84f, var(--gold));
-  color: #16130a;
+  background: var(--gold-grad);
+  color: var(--on-gold);
   box-shadow: 0 6px 24px var(--gold-glow);
 }
 
@@ -162,7 +234,7 @@ button { background: none; border: 0; cursor: pointer; }
   top: 0;
   z-index: 30;
   padding: calc(var(--safe-t) + 10px) 16px 0;
-  background: rgba(10, 10, 11, .78);
+  background: var(--glass);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--line-soft);
@@ -243,7 +315,7 @@ button { background: none; border: 0; cursor: pointer; }
 .chip.is-active {
   background: var(--gold);
   border-color: var(--gold);
-  color: #16130a;
+  color: var(--on-gold);
 }
 
 .chip__n {
@@ -252,13 +324,13 @@ button { background: none; border: 0; cursor: pointer; }
   min-width: 18px;
   padding: 1px 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .09);
+  background: var(--hairline);
   color: var(--txt);
   font-variant-numeric: tabular-nums;
 }
 .chip.is-active .chip__n {
   background: rgba(0, 0, 0, .22);
-  color: #16130a;
+  color: var(--on-gold);
 }
 
 /* ───────────────────────── תצוגות ───────────────────────── */
@@ -290,7 +362,7 @@ button { background: none; border: 0; cursor: pointer; }
 .card.is-new {
   animation: pop .5s var(--ease) both;
   border-color: var(--gold-dim);
-  box-shadow: 0 0 0 1px var(--gold-glow), 0 10px 34px rgba(0, 0, 0, .5);
+  box-shadow: 0 0 0 1px var(--gold-glow), var(--shadow-md);
 }
 
 .card__head {
@@ -331,6 +403,16 @@ button { background: none; border: 0; cursor: pointer; }
   border: 1px solid var(--line);
 }
 
+/* תג "3D" על תכשיט בקולקציה */
+.pill--3d {
+  background: var(--gold-soft);
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  font-size: 10px;
+  padding: 2px 6px;
+  letter-spacing: .5px;
+}
+
 /* פרטי קשר */
 .card__contact {
   display: flex;
@@ -351,7 +433,7 @@ button { background: none; border: 0; cursor: pointer; }
   background: var(--bg-elev-2);
   border-inline-start: 2px solid var(--gold-dim);
   font-size: 14px;
-  color: #d8d8dd;
+  color: var(--txt);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -419,7 +501,7 @@ button { background: none; border: 0; cursor: pointer; }
   flex: none;
   border-radius: 9px;
   object-fit: cover;
-  background: #000;
+  background: var(--img-bg);
 }
 .media__txt { min-width: 0; }
 .media__k {
@@ -461,9 +543,9 @@ button { background: none; border: 0; cursor: pointer; }
 
 .st.is-on { color: #fff; }
 .st.is-on[data-status="nouveau"]  { background: var(--blue); }
-.st.is-on[data-status="en_cours"] { background: var(--orange); color: #17120a; }
-.st.is-on[data-status="attente"]  { background: #5e5ce6; }
-.st.is-on[data-status="termine"]  { background: var(--green); color: #0a1a0d; }
+.st.is-on[data-status="en_cours"] { background: var(--orange); color: var(--on-warn); }
+.st.is-on[data-status="attente"]  { background: var(--purple); }
+.st.is-on[data-status="termine"]  { background: var(--green); color: var(--on-ok); }
 
 /* ── פעולות ── */
 .card__actions {
@@ -503,13 +585,13 @@ button { background: none; border: 0; cursor: pointer; }
   margin-bottom: 14px;
   border-radius: var(--radius);
   border: 1px dashed var(--gold-dim);
-  background: rgba(212, 175, 55, .05);
+  background: var(--gold-soft);
   color: var(--gold);
   font-weight: 600;
   font-size: 15px;
   transition: transform .12s var(--ease), background .2s;
 }
-.add-tile:active { transform: scale(.98); background: rgba(212, 175, 55, .1); }
+.add-tile:active { transform: scale(.98); background: var(--gold-glow); }
 .add-tile svg { width: 20px; height: 20px; }
 .add-tile:disabled { opacity: .5; pointer-events: none; }
 
@@ -534,7 +616,7 @@ button { background: none; border: 0; cursor: pointer; }
   aspect-ratio: 1;
   object-fit: cover;
   display: block;
-  background: #000;
+  background: var(--img-bg);
 }
 
 .item__bar {
@@ -562,7 +644,7 @@ button { background: none; border: 0; cursor: pointer; }
   color: var(--txt-3);
   transition: transform .12s var(--ease), color .18s, background .18s;
 }
-.item__del:active { transform: scale(.88); background: rgba(255,69,58,.15); color: var(--red); }
+.item__del:active { transform: scale(.88); background: var(--red-soft); color: var(--red); }
 .item__del svg { width: 16px; height: 16px; }
 
 /* ───────────────────────── לשוניות ───────────────────────── */
@@ -575,7 +657,7 @@ button { background: none; border: 0; cursor: pointer; }
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   padding: 6px 8px calc(6px + var(--safe-b));
-  background: rgba(10, 10, 11, .8);
+  background: var(--glass);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 1px solid var(--line-soft);
@@ -619,7 +701,7 @@ button { background: none; border: 0; cursor: pointer; }
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, .55);
+  background: var(--backdrop);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   animation: fadeIn .22s var(--ease) both;
@@ -666,6 +748,165 @@ button { background: none; border: 0; cursor: pointer; }
 .row-btn--danger { color: var(--red); }
 .row-btn--danger svg { color: var(--red); }
 
+.row-btn--plain {
+  background: none;
+  justify-content: center;
+  color: var(--txt-2);
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+/* ── מתג מצב יום / לילה ── */
+
+.row-switch { cursor: pointer; }
+.row-switch__label { flex: 1; }
+
+.switch {
+  flex: none;
+  width: 50px; height: 30px;
+  border-radius: 999px;
+  background: var(--line);
+  padding: 3px;
+  transition: background .22s var(--ease);
+}
+.row-switch[aria-checked="true"] .switch { background: var(--gold); }
+
+.switch__dot {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  transition: transform .22s var(--ease);
+}
+/* RTL: הידית נעה שמאלה כשהמתג דלוק */
+.row-switch[aria-checked="true"] .switch__dot { transform: translateX(-20px); }
+
+/* ───────────────────────── טופס תכשיט ───────────────────────── */
+
+.sheet--form {
+  max-height: 88dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.form { display: grid; gap: 14px; margin-top: 4px; }
+
+.field { display: grid; gap: 7px; }
+.field__label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--txt-3);
+  letter-spacing: .3px;
+}
+
+/* בוחר תמונה */
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  width: 100%;
+  text-align: start;
+  transition: transform .12s var(--ease), border-color .18s;
+}
+.picker:active { transform: scale(.985); }
+.picker--empty { border-style: dashed; border-color: var(--gold-dim); }
+
+.picker__img {
+  width: 58px; height: 58px;
+  flex: none;
+  border-radius: 9px;
+  object-fit: cover;
+  background: var(--img-bg);
+}
+.picker__ph {
+  width: 58px; height: 58px;
+  flex: none;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.picker__ph svg { width: 24px; height: 24px; }
+.picker__txt { min-width: 0; flex: 1; }
+.picker__v {
+  font-size: 14.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker__hint { font-size: 12px; color: var(--txt-3); margin-top: 2px; }
+.picker__hint--gold { color: var(--gold); }
+
+/* כפתור הסרה בתוך שורה */
+.picker__x {
+  flex: none;
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  color: var(--txt-3);
+  transition: transform .12s var(--ease), color .18s, background .18s;
+}
+.picker__x:active { transform: scale(.88); background: var(--red-soft); color: var(--red); }
+.picker__x svg { width: 15px; height: 15px; }
+
+.form__actions { display: grid; gap: 8px; margin-top: 6px; }
+
+/* פס התקדמות העלאה */
+.progress {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+}
+.progress__bar {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: var(--gold-grad);
+  transition: width .25s var(--ease);
+}
+
+/* ── כפתור הורדת קובץ תלת־ממד בכרטיס הזמנה ── */
+
+.act--3d {
+  background: var(--gold-grad);
+  color: var(--on-gold);
+  box-shadow: 0 4px 18px var(--gold-glow);
+  text-decoration: none;
+  margin-top: 9px;
+  width: 100%;
+}
+
+/* ── הצעת Face ID ── */
+
+.onboard {
+  text-align: center;
+  padding: 6px 8px 20px;
+}
+.onboard__ico {
+  width: 54px; height: 54px;
+  margin: 4px auto 14px;
+  display: grid; place-items: center;
+  border-radius: 16px;
+  background: var(--gold-glow);
+  color: var(--gold);
+}
+.onboard__ico svg { width: 32px; height: 32px; }
+.onboard__text {
+  color: var(--txt-2);
+  font-size: 14.5px;
+  margin-top: 8px;
+  max-width: 30ch;
+  margin-inline: auto;
+}
+
 /* ───────────────────────── תמונה מלאה ───────────────────────── */
 
 .lightbox {
@@ -709,13 +950,13 @@ button { background: none; border: 0; cursor: pointer; }
   border-radius: 13px;
   background: var(--bg-elev-2);
   border: 1px solid var(--line);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+  box-shadow: var(--shadow-lg);
   font-size: 14.5px;
   font-weight: 600;
   text-align: center;
   animation: slideUp .26s var(--ease) both;
 }
-.toast.is-err { border-color: var(--red); color: #ffb4ae; }
+.toast.is-err { border-color: var(--red); color: var(--red); }
 .toast.is-ok  { border-color: var(--gold-dim); color: var(--gold); }
 
 /* ───────────────────────── אנימציות ───────────────────────── */
