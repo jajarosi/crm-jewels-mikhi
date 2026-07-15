@@ -122,6 +122,47 @@
           </div>
         </div>
 
+        <!-- חיפוש (רק בתצוגת הזמנות) -->
+        <div id="search-bar" class="search">
+          <svg class="search__ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+            <path
+              d="m16 16 4.5 4.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <input
+            id="input-search"
+            class="search__input"
+            type="search"
+            inputmode="search"
+            enterkeyhint="search"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="חיפוש לפי שם, טלפון, מייל…"
+            aria-label="חיפוש בהזמנות"
+          />
+          <button
+            id="btn-search-clear"
+            class="search__x"
+            type="button"
+            aria-label="ניקוי החיפוש"
+            hidden
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
         <!-- מסננים לפי סטטוס (רק בתצוגת הזמנות) -->
         <nav id="filters" class="filters" aria-label="סינון לפי סטטוס"></nav>
       </header>
@@ -130,8 +171,10 @@
       <main id="view-orders" class="view">
         <div id="orders-list" class="orders"></div>
         <div id="orders-empty" class="empty" hidden>
-          <p class="empty__title">אין הזמנות</p>
-          <p class="empty__text">הזמנות חדשות יופיעו כאן אוטומטית.</p>
+          <p id="empty-title" class="empty__title">אין הזמנות</p>
+          <p id="empty-text" class="empty__text">
+            הזמנות חדשות יופיעו כאן אוטומטית.
+          </p>
         </div>
       </main>
 

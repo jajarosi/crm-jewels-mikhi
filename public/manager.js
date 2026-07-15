@@ -194,6 +194,7 @@ const state = {
   submissions: [],
   creations:   [],
   filter:      'all',
+  query:       '',          // טקסט החיפוש
   view:        'orders',
   fresh:       new Set(),   // מזהי הזמנות שהגיעו ב-Realtime
 };
@@ -365,12 +366,62 @@ async function loadCreations() {
   renderOrders();
 }
 
-/* ═══════════════ 7. מסננים ומונים ═══════════════ */
+/* ═══════════════ 7. חיפוש, מסננים ומונים ═══════════════ */
+
+/** כל הטקסט של הזמנה, לחיפוש חופשי */
+function haystack(sub) {
+  const cr = state.creations.find((c) => c.id === sub.creation_id);
+  return [
+    sub.client_name, sub.client_email, sub.comment,
+    sub.creation_name, cr?.name, PATHS[sub.path],
+    sub.jewel, sub.jewel_color, sub.metal_carat, sub.layout,
+    sub.gem, sub.stone_type, sub.origin, sub.shape, sub.stone_carat,
+    sub.gem_around, sub.stone_type_around, sub.origin_around,
+    sub.shape_around, sub.stone_carat_around,
+    sub.ring_size, sub.bracelet_size, sub.collier_size, sub.boucles_type,
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+/**
+ * טלפון בשלוש צורות, כדי שכל דרך חיפוש תעבוד:
+ *   raw   — כפי שהוקלד, ללא סימנים   "+972 54 987 6543" → "972549876543"
+ *   intl  — בינלאומי                              → "972549876543"
+ *   local — לאומי, עם 0 בהתחלה                    → "0549876543"
+ * בלי הצורה הלאומית, חיפוש "054" לא היה מוצא מספר ששמור כ-+972.
+ */
+function phoneHaystack(phone) {
+  const raw   = String(phone ?? '').replace(/\D/g, '');
+  const intl  = toIsraeliWa(phone) ?? '';
+  const local = intl ? '0' + intl.slice(3) : '';
+  return `${raw} ${intl} ${local}`;
+}
+
+/** כל המילים חייבות להימצא (AND), בטקסט או בטלפון */
+function matchesQuery(sub, query) {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return true;
+
+  const text  = haystack(sub);
+  const phone = phoneHaystack(sub.client_phone);
+
+  return tokens.every((t) => {
+    if (text.includes(t)) return true;
+    const digits = t.replace(/\D/g, '');
+    return digits.length >= 2 && phone.includes(digits);
+  });
+}
+
+/** ההזמנות שעברו את החיפוש (לפני סינון הסטטוס) */
+function searched() {
+  const q = state.query.trim();
+  return q ? state.submissions.filter((s) => matchesQuery(s, q)) : state.submissions;
+}
 
 function counts() {
-  const c = { all: state.submissions.length };
+  const base = searched();
+  const c = { all: base.length };
   for (const s of STATUSES) c[s.key] = 0;
-  for (const sub of state.submissions) {
+  for (const sub of base) {
     if (sub.status in c) c[sub.status]++;
   }
   return c;
@@ -399,6 +450,35 @@ $('#filters').addEventListener('click', (e) => {
   buzz();
   renderFilters();
   renderOrders();
+});
+
+/* — חיפוש — */
+
+function applySearch(value) {
+  state.query = value;
+  $('#btn-search-clear').hidden = !value;
+  renderFilters();   // המונים משקפים את תוצאות החיפוש
+  renderOrders();
+}
+
+// השהיה קצרה: מונעת ציור מחדש של כל הרשימה בכל הקשה
+let searchTimer;
+$('#input-search').addEventListener('input', (e) => {
+  const value = e.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => applySearch(value), 120);
+});
+
+// מקש "חיפוש" במקלדת — סוגר אותה
+$('#input-search').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+});
+
+$('#btn-search-clear').addEventListener('click', () => {
+  $('#input-search').value = '';
+  clearTimeout(searchTimer);
+  applySearch('');
+  buzz();
 });
 
 /* ═══════════════ 8. רינדור כרטיסי הזמנה ═══════════════ */
@@ -527,12 +607,30 @@ function cardHtml(sub) {
 }
 
 function renderOrders() {
+  const base = searched();
   const list = state.filter === 'all'
-    ? state.submissions
-    : state.submissions.filter((s) => s.status === state.filter);
+    ? base
+    : base.filter((s) => s.status === state.filter);
 
   $('#orders-list').innerHTML = list.map(cardHtml).join('');
   $('#orders-empty').hidden = list.length > 0;
+
+  if (list.length) return;
+
+  // מצב ריק מותאם: אין תוצאות / אין הזמנות בסטטוס / אין הזמנות בכלל
+  const q = state.query.trim();
+  const statusLabel = STATUSES.find((s) => s.key === state.filter)?.label;
+
+  if (q) {
+    $('#empty-title').textContent = 'אין תוצאות';
+    $('#empty-text').textContent  = `לא נמצאה הזמנה עבור "${q}".`;
+  } else if (statusLabel) {
+    $('#empty-title').textContent = `אין הזמנות בסטטוס "${statusLabel}"`;
+    $('#empty-text').textContent  = 'בחרו סטטוס אחר או "הכל".';
+  } else {
+    $('#empty-title').textContent = 'אין הזמנות';
+    $('#empty-text').textContent  = 'הזמנות חדשות יופיעו כאן אוטומטית.';
+  }
 }
 
 /* — שינוי סטטוס (עדכון אופטימי) — */
@@ -1059,6 +1157,7 @@ $$('.tab').forEach((tab) => {
     $('#view-orders').hidden     = view !== 'orders';
     $('#view-collection').hidden = view !== 'collection';
     $('#filters').hidden         = view !== 'orders';
+    $('#search-bar').hidden      = view !== 'orders';
     $('#view-title').textContent = view === 'orders' ? 'הזמנות' : 'קולקציה';
     window.scrollTo({ top: 0 });
   });
