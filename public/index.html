@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>מיכאל בלוך — ניהול</title>
+
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ניהול">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="icon" href="/assets/icon-192.png">
+<link rel="stylesheet" href="/manager.css">
+</head>
+<body>
+
+<!-- ═══════════════════ מסך כניסה ═══════════════════ -->
+<section id="login-screen" class="login" hidden>
+  <div class="login__inner">
+    <div class="login__logo" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none"><path d="M24 4 44 18 24 44 4 18 24 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4 18h40M24 4l-8 14 8 26 8-26-8-14" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity=".55"/></svg>
+    </div>
+    <h1 class="login__title">מיכאל בלוך</h1>
+    <p class="login__subtitle">מערכת ניהול הזמנות</p>
+
+    <!-- כניסה מהירה עם Face ID -->
+    <button id="btn-passkey-login" class="btn btn--primary btn--lg" hidden>
+      <svg class="btn__ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9 10v1.5M15 10v1.5M9.5 15.5c1.5 1.2 3.5 1.2 5 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      כניסה עם Face ID
+    </button>
+
+    <!-- כניסה עם קישור למייל -->
+    <form id="form-magiclink" class="login__form">
+      <input
+        id="input-email"
+        class="input"
+        type="email"
+        inputmode="email"
+        autocomplete="email"
+        placeholder="כתובת אימייל"
+        required>
+      <button id="btn-magiclink" class="btn btn--ghost" type="submit">
+        שליחת קישור כניסה
+      </button>
+    </form>
+
+    <p id="login-msg" class="login__msg" role="status" aria-live="polite"></p>
+  </div>
+</section>
+
+<!-- ═══════════════════ האפליקציה ═══════════════════ -->
+<div id="app" class="app" hidden>
+
+  <!-- כותרת + מסננים -->
+  <header class="topbar">
+    <div class="topbar__row">
+      <h1 id="view-title" class="topbar__title">הזמנות</h1>
+      <div class="topbar__actions">
+        <span id="live-dot" class="live" title="חיבור חי"></span>
+        <button id="btn-menu" class="icon-btn" aria-label="הגדרות">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- מסננים לפי סטטוס (רק בתצוגת הזמנות) -->
+    <nav id="filters" class="filters" aria-label="סינון לפי סטטוס"></nav>
+  </header>
+
+  <!-- ── תצוגת הזמנות ── -->
+  <main id="view-orders" class="view">
+    <div id="orders-list" class="orders"></div>
+    <div id="orders-empty" class="empty" hidden>
+      <p class="empty__title">אין הזמנות</p>
+      <p class="empty__text">הזמנות חדשות יופיעו כאן אוטומטית.</p>
+    </div>
+  </main>
+
+  <!-- ── תצוגת קולקציה ── -->
+  <main id="view-collection" class="view" hidden>
+    <button id="btn-add-creation" class="add-tile">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>הוספת תכשיט לקולקציה</span>
+    </button>
+    <input id="file-creation" type="file" accept="image/*" hidden>
+
+    <div id="collection-grid" class="grid"></div>
+    <div id="collection-empty" class="empty" hidden>
+      <p class="empty__title">הקולקציה ריקה</p>
+      <p class="empty__text">הוסיפו תכשיט ראשון עם הכפתור למעלה.</p>
+    </div>
+  </main>
+
+  <!-- לשוניות תחתונות -->
+  <nav class="tabbar" aria-label="ניווט ראשי">
+    <button class="tab is-active" data-view="orders" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>הזמנות</span>
+      <em id="tab-badge" class="tab__badge" hidden>0</em>
+    </button>
+    <button class="tab" data-view="collection">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 20 9l-8 12L4 9l8-6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 9h16M12 3 9 9l3 12 3-12-3-6" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" opacity=".5"/></svg>
+      <span>קולקציה</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════ גיליון הגדרות ═══════════════════ -->
+<div id="sheet-backdrop" class="backdrop" hidden></div>
+<section id="sheet-settings" class="sheet" hidden aria-label="הגדרות">
+  <div class="sheet__grip" aria-hidden="true"></div>
+  <h2 class="sheet__title">הגדרות</h2>
+  <p id="settings-email" class="sheet__meta"></p>
+
+  <button id="btn-register-passkey" class="row-btn">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9 10v1.5M15 10v1.5M9.5 15.5c1.5 1.2 3.5 1.2 5 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <span>הפעלת Face ID במכשיר הזה</span>
+  </button>
+
+  <button id="btn-refresh" class="row-btn">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>רענון נתונים</span>
+  </button>
+
+  <button id="btn-logout" class="row-btn row-btn--danger">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8 6 12l4 4M6 12h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>התנתקות</span>
+  </button>
+</section>
+
+<!-- ═══════════════════ תצוגת תמונה מלאה ═══════════════════ -->
+<div id="lightbox" class="lightbox" hidden>
+  <button class="lightbox__close" aria-label="סגירה">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+  <img id="lightbox-img" alt="">
+</div>
+
+<!-- הודעות -->
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="/manager.js"></script>
+</body>
+</html>
