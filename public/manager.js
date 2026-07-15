@@ -871,25 +871,46 @@ function renderProductForm() {
 
 /* בחירת קבצים */
 $('#btn-add-creation').addEventListener('click', () => openProduct(null));
-$('#pick-img').addEventListener('click', () => $('#file-img').click());
 $('#pick-3d').addEventListener('click', () => $('#file-3d').click());
 $('#btn-product-cancel').addEventListener('click', closeProduct);
 $('#product-backdrop').addEventListener('click', closeProduct);
 
-$('#file-img').addEventListener('change', async (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (!file) return;
+/* לחיצה על הכרטיס פותחת את התפריט של iOS (מצלמה / גלריה / קבצים);
+   הכפתורים הייעודיים חוסכים את הבחירה הזו. */
+$('#pick-img').addEventListener('click',    () => $('#file-img').click());
+$('#btn-gallery').addEventListener('click', () => $('#file-img').click());
+$('#btn-cam').addEventListener('click',     () => $('#file-img-cam').click());
+
+/**
+ * מסלול אחד לכל התמונות — מהמצלמה או מהגלריה:
+ * הקטנה ל-1200px ← המרה ל-WebP 80% ← תצוגה מקדימה.
+ */
+async function handleImageFile(file) {
+  const btn = $('#btn-cam');
+  btn.disabled = true;
+  $('#pick-img-v').textContent = 'מעבד…';
   try {
     const { blob, ext } = await compressImage(file);
     releasePreview();
     product.img = { blob, ext };
     product.imgUrl = URL.createObjectURL(blob);
-    renderProductForm();
+    buzz();
   } catch {
-    toast('לא ניתן לקרוא את התמונה.', 'err');
+    // HEIC ישן, קובץ פגום, או תמונה גדולה מדי לזיכרון
+    toast('לא ניתן לקרוא את התמונה. נסו שוב.', 'err');
+  } finally {
+    btn.disabled = false;
+    renderProductForm();
   }
-});
+}
+
+for (const id of ['#file-img', '#file-img-cam']) {
+  $(id).addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';          // מאפשר לצלם שוב את אותה תמונה
+    if (file) await handleImageFile(file);
+  });
+}
 
 $('#file-3d').addEventListener('change', (e) => {
   const file = e.target.files?.[0];

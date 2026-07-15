@@ -858,6 +858,39 @@ button { background: none; border: 0; cursor: pointer; }
 
 .form__actions { display: grid; gap: 8px; margin-top: 6px; }
 
+/* ── מצלמה / גלריה ── */
+
+.pick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  color: var(--txt);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform .12s var(--ease), background .18s;
+}
+.mini-btn:active { transform: scale(.96); }
+.mini-btn:disabled { opacity: .45; pointer-events: none; }
+.mini-btn svg { width: 18px; height: 18px; flex: none; }
+
+.mini-btn--gold {
+  background: var(--gold-soft);
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+.mini-btn--gold:active { background: var(--gold-glow); }
+
 /* פס התקדמות העלאה */
 .progress {
   height: 4px;
