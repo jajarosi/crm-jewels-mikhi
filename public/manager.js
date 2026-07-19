@@ -11,6 +11,7 @@ const CONFIG = {
   SUPABASE_URL:      'https://byyfxmdjqoxncjziubne.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5eWZ4bWRqcW94bmNqeml1Ym5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTgxMjYsImV4cCI6MjA5OTY3NDEyNn0.I2KGgR1g4U6S6d0UZUMoEJF2oLpt28VDRVEY6y3mEDQ',
   STORAGE_BUCKET:    'creations',   // דלי ציבורי ב-Supabase Storage
+  ONESIGNAL_APP_ID:  'd68d01ac-33e8-4b7a-acf0-ae00d3eced09',   // OneSignal — התראות Push
   MODELS_FOLDER:     '3d_models',   // תיקיית קבצי התלת־ממד בתוך הדלי
   MAX_IMG:           1200,          // מקסימום רוחב/גובה (px)
   WEBP_QUALITY:      0.8,
@@ -1207,6 +1208,136 @@ supabase.auth.onAuthStateChange((event) => {
     showLogin();
   }
 });
+
+/* ═══════════════ 13. התראות Push (OneSignal) ═══════════════
+
+   ▸ הסבר ל-iPhone: התראות Push עובדות רק אם האפליקציה מותקנת
+     במסך הבית (שיתוף → הוספה למסך הבית). בלשונית Safari רגילה — לא.
+     iOS 16.4+ בלבד. ב-manifest כבר יש display:standalone, אז זה מכוסה.
+
+   ▸ ה-Service Worker של OneSignal מבודד ב-/push/onesignal/ כדי שלא
+     יתנגש עם ה-SW הראשי של האפליקציה (שנמצא ב-/).                     */
+
+const OS_TAG_ROLE = 'patron';   // תגית לזיהוי המכשיר של הבעלים ב-OneSignal
+
+let oneSignalReady = false;
+
+function withOneSignal(fn) {
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(fn);
+}
+
+/** אתחול פעם אחת. לא מציג בקשה — רק מכין את ה-SDK. */
+function initOneSignal() {
+  if (oneSignalReady) return;
+  oneSignalReady = true;
+
+  withOneSignal(async (OneSignal) => {
+    try {
+      await OneSignal.init({
+        appId: CONFIG.ONESIGNAL_APP_ID,
+        serviceWorkerPath:  'push/onesignal/OneSignalSDKWorker.js',
+        serviceWorkerParam: { scope: '/push/onesignal/' },
+        // בלי בקשה אוטומטית — נבקש רק בלחיצה על הכפתור בהגדרות
+        autoResubscribe: true,
+      });
+      refreshNotifButton();
+      // סנכרון כשהמצב משתנה (הרשאה שניתנה/בוטלה)
+      OneSignal.Notifications.addEventListener('permissionChange', refreshNotifButton);
+    } catch (err) {
+      console.error('OneSignal init', err);
+    }
+  });
+}
+
+/** האם המכשיר תומך והאפליקציה מותקנת (standalone) */
+function pushEnvOk() {
+  const standalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;   // iOS
+  return { supported: 'Notification' in window || 'serviceWorker' in navigator, standalone };
+}
+
+/** מעדכן את מצב הכפתור בהגדרות לפי ההרשאה בפועל */
+function refreshNotifButton() {
+  const row   = $('#btn-notif');
+  const label = $('#notif-label');
+  const hint  = $('#notif-hint');
+  if (!row) return;
+
+  const { standalone } = pushEnvOk();
+
+  withOneSignal((OneSignal) => {
+    const granted = OneSignal.Notifications.permission === true;
+    const subbed  = OneSignal.User?.PushSubscription?.optedIn === true;
+
+    if (granted && subbed) {
+      row.setAttribute('aria-checked', 'true');
+      label.textContent = 'התראות פעילות';
+      hint.textContent  = 'תקבל התראה על כל הזמנה חדשה.';
+      hint.hidden = false;
+    } else {
+      row.setAttribute('aria-checked', 'false');
+      label.textContent = 'הפעלת התראות';
+      // רמז ל-iPhone שעדיין בלשונית Safari
+      if (!standalone && isIOS()) {
+        hint.textContent = 'קודם: שיתוף → הוספה למסך הבית, ואז לפתוח משם.';
+        hint.hidden = false;
+      } else {
+        hint.hidden = true;
+      }
+    }
+  });
+}
+
+const isIOS = () =>
+  /iP(hone|ad|od)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+/** לחיצה על הכפתור: מבקש הרשאה ומסמן את המכשיר כ"בעלים" */
+async function toggleNotifications() {
+  const row = $('#btn-notif');
+  row.setAttribute('disabled', '');
+
+  withOneSignal(async (OneSignal) => {
+    try {
+      const already = OneSignal.Notifications.permission === true;
+
+      if (!already) {
+        // חייב מחווה של המשתמש — לכן זה כאן, בתוך onclick
+        await OneSignal.Notifications.requestPermission();
+      }
+
+      if (OneSignal.Notifications.permission === true) {
+        await OneSignal.User.PushSubscription.optIn();
+        // תגית שמאפשרת ל-Edge Function לכוון רק אליו
+        await OneSignal.User.addTag('role', OS_TAG_ROLE);
+        buzz(18);
+        toast('התראות הופעלו ✓', 'ok');
+      } else {
+        // המשתמש דחה, או שהדפדפן חסם (לשונית Safari במקום מסך הבית)
+        const { standalone } = pushEnvOk();
+        toast(
+          !standalone && isIOS()
+            ? 'יש להתקין את האפליקציה במסך הבית תחילה.'
+            : 'ההרשאה נדחתה. אפשר להפעיל שוב מהגדרות המכשיר.',
+          'err',
+        );
+      }
+    } catch (err) {
+      console.error('OneSignal subscribe', err);
+      toast('לא ניתן להפעיל התראות כרגע.', 'err');
+    } finally {
+      row.removeAttribute('disabled');
+      refreshNotifButton();
+    }
+  });
+}
+
+$('#btn-notif').addEventListener('click', toggleNotifications);
+
+// מאתחלים ברקע; הבקשה עצמה תבוא רק בלחיצה
+initOneSignal();
 
 /* — Service Worker — */
 if ('serviceWorker' in navigator) {

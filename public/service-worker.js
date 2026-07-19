@@ -49,6 +49,9 @@ self.addEventListener('fetch', (e) => {
   // Supabase (REST / Auth / Realtime / Storage) → תמיד מהרשת, בלי מטמון
   if (/supabase\.(co|in)$/.test(url.hostname) || url.protocol === 'wss:') return;
 
+  // OneSignal (SDK, API, worker) → תמיד מהרשת; ה-SW שלו מנוהל בנפרד ב-/push/
+  if (/onesignal\.com$/.test(url.hostname) || url.pathname.startsWith('/push/')) return;
+
   // ניווט → network-first, נסיגה למעטפת השמורה במצב לא-מקוון
   if (request.mode === 'navigate') {
     e.respondWith(

@@ -20,8 +20,8 @@
     <!-- מוחל את מצב היום לפני הציור הראשון — מונע הבזק כהה -->
     <script>
       try {
-        if (localStorage.getItem('mb_theme') === 'light') {
-          document.documentElement.dataset.theme = 'light';
+        if (localStorage.getItem("mb_theme") === "light") {
+          document.documentElement.dataset.theme = "light";
         }
       } catch (e) {}
     </script>
@@ -30,6 +30,11 @@
     <link rel="apple-touch-icon" href="/assets/icon-180.png" />
     <link rel="icon" href="/assets/icon-192.png" />
     <link rel="stylesheet" href="./manager.css" />
+
+    <script
+      async
+      src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+    ></script>
   </head>
   <body>
     <!-- ═══════════════════ מסך כניסה ═══════════════════ -->
@@ -124,8 +129,19 @@
 
         <!-- חיפוש (רק בתצוגת הזמנות) -->
         <div id="search-bar" class="search">
-          <svg class="search__ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+          <svg
+            class="search__ico"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="6.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
             <path
               d="m16 16 4.5 4.5"
               stroke="currentColor"
@@ -262,6 +278,36 @@
         </span>
       </button>
 
+      <!-- התראות Push -->
+      <button
+        id="btn-notif"
+        class="row-btn row-switch"
+        role="switch"
+        aria-checked="false"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7Z"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10.5 20a2 2 0 0 0 3 0"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="row-switch__label">
+          <span id="notif-label">הפעלת התראות</span>
+          <small id="notif-hint" class="row-hint" hidden></small>
+        </span>
+        <span class="switch" aria-hidden="true">
+          <span class="switch__dot"></span>
+        </span>
+      </button>
+
       <button id="btn-register-passkey" class="row-btn">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
@@ -351,7 +397,13 @@
                   stroke-width="1.6"
                   stroke-linejoin="round"
                 />
-                <circle cx="12" cy="12.8" r="3.2" stroke="currentColor" stroke-width="1.6" />
+                <circle
+                  cx="12"
+                  cy="12.8"
+                  r="3.2"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
               </svg>
               צילום תמונה
             </button>
@@ -447,10 +499,18 @@
         </div>
 
         <div class="form__actions">
-          <button id="btn-product-save" class="btn btn--primary btn--lg" type="submit">
+          <button
+            id="btn-product-save"
+            class="btn btn--primary btn--lg"
+            type="submit"
+          >
             שמירה
           </button>
-          <button id="btn-product-cancel" class="row-btn row-btn--plain" type="button">
+          <button
+            id="btn-product-cancel"
+            class="row-btn row-btn--plain"
+            type="button"
+          >
             <span>ביטול</span>
           </button>
         </div>

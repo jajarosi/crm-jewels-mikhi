@@ -809,7 +809,21 @@ button { background: none; border: 0; cursor: pointer; }
 /* ── מתג מצב יום / לילה ── */
 
 .row-switch { cursor: pointer; }
-.row-switch__label { flex: 1; }
+.row-switch__label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.row-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--txt-3);
+  line-height: 1.35;
+}
+.row-switch[aria-checked="true"] .row-hint { color: var(--gold); }
 
 .switch {
   flex: none;
